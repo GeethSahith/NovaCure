@@ -1,0 +1,6 @@
+__pycache__
+venv
+.env
+design_doc.txt
+design_tables.txt
+NovaCure_Phase1_SystemDesign.docx
