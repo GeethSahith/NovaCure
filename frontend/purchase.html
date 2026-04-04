@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NovaCure | Procurement & POs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem; }
+        .container { max-width: 1200px; margin: auto; }
+        h1 { color: #f59e0b; border-bottom: 2px solid #1e293b; padding-bottom: 0.5rem; }
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.25rem; }
+        input, select { width: 100%; padding: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px; box-sizing: border-box; }
+        button { background: #f59e0b; color: white; border: none; padding: 0.75rem 1rem; font-weight: 600; cursor: pointer; border-radius: 6px; width: 100%; margin-top: 1rem;}
+        button:hover { background: #d97706; }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: #94a3b8; text-decoration: none; margin-right: 1rem; font-weight: 600; padding: 0.5rem; background: #1e293b; border-radius: 4px;}
+        .log-box { background: #020617; padding: 1rem; border-radius: 8px; font-family: monospace; color: #10b981; margin-top: 1rem; height: 100px; overflow-y: auto;}
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem;}
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; }
+        .chip { padding: 4px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; background: #3b82f6; color: white;}
+        .chip.received { background: #10b981; }
+        .receive-btn { background: #10b981; padding: 0.25rem 0.5rem; font-size: 0.75rem; width: auto; margin:0;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nav">
+        <a href="dashboard.html">← Back to Dashboard</a>
+    </div>
+    
+    <h1>Procurement (Purchase Orders) 🚚</h1>
+    <p style="color: #94a3b8;">Create draft Purchase Orders for vendors, and gracefully mark them as 'received' when the truck physically arrives.</p>
+    
+    <div class="grid">
+        <!-- Create PO -->
+        <div class="card">
+            <h3>Draft New PO</h3>
+            <form id="poForm">
+                <div class="form-group">
+                    <label>External Vendor Name</label>
+                    <input type="text" id="pVendor" required placeholder="e.g. Pfizer, Sun Pharma...">
+                </div>
+                <div class="form-group">
+                    <label>Master Product Catalog</label>
+                    <select id="pProd" required>
+                        <option value="">Loading products...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity Ordered</label>
+                    <input type="number" id="pQty" required>
+                </div>
+                <button type="submit">Submit Purchase Order</button>
+            </form>
+            <div id="pLog" class="log-box">Awaiting PO creation...</div>
+        </div>
+
+        <!-- View POs -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items:center;">
+                <h3 style="margin:0;">Active Purchase Orders</h3>
+                <button onclick="fetchPOs()" style="width: auto; margin:0; padding: 0.5rem; background: #1e293b; border: 1px solid #3b82f6; color:#3b82f6;">Refresh</button>
+            </div>
+            
+            <table id="poTable">
+                <thead>
+                    <tr>
+                        <th>ID / Date</th>
+                        <th>Vendor</th>
+                        <th>Status</th>
+                        <th>Ordered Item</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="5" style="text-align:center; color:#94a3b8;">Click Refresh to load POs</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+    const token = localStorage.getItem("access_token");
+    let currentBranch = "";
+
+    if (!token) window.location.href = "index.html";
+
+    // Auto-fetch branch
+    fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => { 
+            currentBranch = data.data.branch_code; 
+            fetchPOs(); 
+            fetchProducts();
+        });
+
+    async function fetchProducts() {
+        const select = document.getElementById('pProd');
+        try {
+            const res = await fetch(`${API_URL}/inventory/products`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                select.innerHTML = '<option value="">Select a Product...</option>';
+                data.data.products.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${p.name} (${p.category})</option>`;
+                });
+            }
+        } catch(e) {
+            select.innerHTML = '<option value="">Error loading</option>';
+        }
+    }
+
+    // Handle PO creation
+    document.getElementById('poForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const log = document.getElementById('pLog');
+        log.style.color = "#f59e0b";
+        log.innerHTML = "Processing...";
+        
+        const payload = {
+            vendor_name: document.getElementById('pVendor').value,
+            branch_code: currentBranch,
+            items: [
+                {
+                    product_id: document.getElementById('pProd').value,
+                    qty_ordered: parseInt(document.getElementById('pQty').value)
+                }
+            ]
+        };
+
+        try {
+            const res = await fetch(`${API_URL}/purchase/orders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                log.style.color = "#10b981";
+                log.innerHTML = "PO Created Successfully! ID: " + data.data.id;
+                fetchPOs(); // refresh right side table
+            } else {
+                log.style.color = "#ef4444";
+                log.innerHTML = data.detail || "Error occurred";
+            }
+        } catch (e) {
+            log.innerHTML = "Error connecting to backend.";
+        }
+    });
+
+    async function fetchPOs() {
+        const tbody = document.querySelector("#poTable tbody");
+        tbody.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
+        try {
+            const res = await fetch(`${API_URL}/purchase/orders`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success && data.data.orders.length > 0) {
+                tbody.innerHTML = "";
+                data.data.orders.forEach(po => {
+                    const date = new Date(po.created_at).toLocaleDateString();
+                    const statusClass = po.status === 'received' ? 'chip received' : 'chip';
+                    const btnHtml = po.status !== 'received' 
+                        ? `<button class="receive-btn" onclick="receivePO('${po.id}')">Mark Received</button>` 
+                        : `<span style="color:#10b981; font-size:0.8rem;">✔ Done</span>`;
+                        
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="font-size:0.75rem;">${po.id.substring(0,8)}...<br><span style="color:#94a3b8">${date}</span></td>
+                            <td>${po.vendor_name}</td>
+                            <td><span class="${statusClass}">${po.status}</span></td>
+                            <td style="font-size:0.75rem;">${po.items[0].qty_ordered}x (${po.items[0].product_id.substring(0,8)})</td>
+                            <td>${btnHtml}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>No Orders Found</td></tr>";
+            }
+        } catch (e) {
+            tbody.innerHTML = "<tr><td colspan='5' style='color:#ef4444;'>Failed to load</td></tr>";
+        }
+    }
+
+    async function receivePO(id) {
+        if (!confirm("Confirm the delivery truck has arrived with this PO?")) return;
+        try {
+            await fetch(`${API_URL}/purchase/orders/${id}/receive`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchPOs();
+        } catch(e) {
+            alert("Error confirming PO");
+        }
+    }
+</script>
+</body>
+</html>

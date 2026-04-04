@@ -21,28 +21,34 @@ def add_stock(stock_data: dict) -> dict:
     """
     admin = get_admin_client()
     
+    # Remove unit_cost because it is not in our 7-table schema
+    if "unit_cost" in stock_data:
+        del stock_data["unit_cost"]
+
     # Check if this exact batch exists
-    check = (
+    check_res = (
         admin.table("inventory")
         .select("*")
         .eq("product_id", stock_data["product_id"])
         .eq("branch_code", stock_data["branch_code"])
         .eq("batch_number", stock_data["batch_number"])
-        .maybe_single()
         .execute()
     )
     
-    if check.data:
+    if check_res.data and len(check_res.data) > 0:
+        existing = check_res.data[0]
         # Increment existing stock
-        new_qty = check.data["quantity"] + stock_data["quantity"]
+        new_qty = existing["quantity"] + stock_data["quantity"]
         res = (
             admin.table("inventory")
             .update({"quantity": new_qty})
-            .eq("id", check.data["id"])
+            .eq("id", existing["id"])
             .execute()
         )
     else:
         # Insert new stock
+        # Convert date to string for supabase json serialization
+        stock_data["expiry_date"] = str(stock_data["expiry_date"])
         res = admin.table("inventory").insert(stock_data).execute()
         
     if not res.data:

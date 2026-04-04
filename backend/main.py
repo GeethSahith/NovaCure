@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.auth.routes import router as auth_router
 from services.inventory.routes import router as inventory_router
 from services.sales.routes import router as sales_router
+from services.purchase.routes import router as purchase_router
+from services.ai.routes import router as ai_router
+from services.reporting.routes import router as reporting_router
 
 app = FastAPI(
     title="NovaCure Platform",
@@ -29,8 +32,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(inventory_router)
 app.include_router(sales_router)
-# app.include_router(purchase_router)
-# app.include_router(ai_router)
+app.include_router(purchase_router)
+app.include_router(ai_router)
+app.include_router(reporting_router)
 
 
 # ── Root & health ─────────────────────────────────────────

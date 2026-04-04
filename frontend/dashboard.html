@@ -153,9 +153,10 @@
         <div class="nav-item active" id="nav-dash" style="display: block;">Dashboard Overview</div>
         
         <!-- Role Specific Menus -->
-        <div class="nav-item" id="nav-sales">Point of Sale</div>
-        <div class="nav-item" id="nav-inventory">Inventory Mgmt</div>
-        <div class="nav-item" id="nav-reports">All Reports</div>
+        <div class="nav-item" id="nav-sales" onclick="window.location.href='sales.html'">Point of Sale</div>
+        <div class="nav-item" id="nav-inventory" onclick="window.location.href='inventory.html'">Inventory Mgmt</div>
+        <div class="nav-item" id="nav-purchase" onclick="window.location.href='purchase.html'">Procurement</div>
+        <div class="nav-item" id="nav-reports" onclick="window.location.href='bi-dashboard.html'">Business Intelligence</div>
 
         <button class="logout-btn" onclick="logout()">Log Out</button>
     </div>
@@ -170,7 +171,7 @@
             <h3 style="margin-top:0">Session Info</h3>
             <p style="color: #94a3b8; font-size: 0.9rem;">Your Branch: <strong style="color:#fff;" id="userBranch">---</strong></p>
             <p style="color: #94a3b8; font-size: 0.9rem;">Email: <strong style="color:#fff;" id="userEmail">---</strong></p>
-            <p style="color: #10b981; font-size: 0.8rem; margin-top: 1.5rem;">Token is actively stored in document.cookie 🍪</p>
+            <p style="color: #10b981; font-size: 0.8rem; margin-top: 1.5rem;">Token actively stored in LocalStorage</p>
         </div>
 
         <h3>Test Privileges via API</h3>
@@ -188,6 +189,13 @@
                 <p style="font-size:0.85rem; color:#94a3b8">Calls /sales/orders. Shows behavior based on role!</p>
                 <button class="action" onclick="fetchSales()">Test Auth Route</button>
                 <div class="api-tester" id="out-sales">Awaiting request...</div>
+            </div>
+
+            <div class="card" id="card-ai" style="display:none;">
+                <h4 style="color:#f59e0b;">Review AI Anomalies 🤖</h4>
+                <p style="font-size:0.85rem; color:#94a3b8">Calls /ai/events. Manager & Admin ONLY.</p>
+                <button class="action" style="background:#f59e0b;" onclick="fetchAI()">Load Pending Alerts</button>
+                <div class="api-tester" id="out-ai" style="color:#f59e0b;">Awaiting request...</div>
             </div>
 
         </div>
@@ -240,16 +248,39 @@
             if (role === 'admin') {
                 document.getElementById('nav-sales').style.display = 'block';
                 document.getElementById('nav-inventory').style.display = 'block';
+                document.getElementById('nav-purchase').style.display = 'block';
                 document.getElementById('nav-reports').style.display = 'block';
+                document.getElementById('card-ai').style.display = 'block';
             } 
             else if (role === 'pharmacist') {
                 document.getElementById('nav-sales').style.display = 'block';
             }
             else if (role === 'warehouse_supervisor') {
                 document.getElementById('nav-inventory').style.display = 'block';
+                document.getElementById('nav-purchase').style.display = 'block';
             }
             else if (role === 'regional_manager') {
                 document.getElementById('nav-reports').style.display = 'block';
+                document.getElementById('card-ai').style.display = 'block';
+            }
+        }
+
+        async function fetchAI() {
+            const logOut = document.getElementById('out-ai');
+            logOut.innerHTML = "Fetching System Anomalies...";
+            try {
+                const res = await fetch(`${API_URL}/ai/events`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                
+                if (data.success && data.data.events.length === 0) {
+                   logOut.innerHTML = "🎉 All Clear! No Pending AI Anomalies.";
+                } else {
+                   logOut.innerHTML = `HTTP ${res.status}<br><br>` + JSON.stringify(data, null, 2).replace(/\n/g, '<br/>');
+                }
+            } catch (e) {
+                logOut.innerHTML = "Error connecting to AI service";
             }
         }
 

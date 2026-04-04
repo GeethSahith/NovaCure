@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NovaCure | BI Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem; }
+        .container { max-width: 1200px; margin: auto; }
+        h1 { color: #8b5cf6; border-bottom: 2px solid #1e293b; padding-bottom: 0.5rem; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;}
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: #94a3b8; text-decoration: none; margin-right: 1rem; font-weight: 600; padding: 0.5rem; background: #1e293b; border-radius: 4px;}
+        .nav a:hover { color: #fff; }
+        .kpi-row { display: flex; gap: 1rem; margin-top: 1rem; }
+        .kpi { flex: 1; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; text-align: center; }
+        .kpi h3 { margin: 0 0 0.5rem 0; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; }
+        .kpi .val { font-size: 2rem; font-weight: 700; color: #8b5cf6; }
+        .kpi .val.green { color: #10b981; }
+        .kpi .val.red { color: #ef4444; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;}
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #94a3b8; text-transform: uppercase; }
+        .error { color: #ef4444; padding: 1rem; background: #450a0a; border-radius: 8px; margin-top: 1rem; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nav">
+        <a href="dashboard.html">← Back to Dashboard</a>
+    </div>
+    
+    <h1>Business Intelligence Hub 📈</h1>
+    <p style="color: #94a3b8;">High-level analytical overview of pharmacy operations. Restriced to Admins and Regional Managers.</p>
+
+    <div id="errorBox" class="error">Unauthorized or Server Error.</div>
+    
+    <div class="kpi-row">
+        <div class="kpi">
+            <h3>Global Network Revenue</h3>
+            <div class="val green" id="kpi-rev">$0.00</div>
+        </div>
+        <div class="kpi">
+            <h3>Active Branches Producing Sales</h3>
+            <div class="val" id="kpi-branches">0</div>
+        </div>
+        <div class="kpi">
+            <h3>Items Expiring (< 90 Days)</h3>
+            <div class="val red" id="kpi-risk">0 Batches</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Chart Section -->
+        <div class="card">
+            <h3 style="margin-top:0">Revenue by Branch</h3>
+            <canvas id="revenueChart" width="400" height="250"></canvas>
+        </div>
+
+        <!-- Risk Table Section -->
+        <div class="card">
+            <h3 style="margin-top:0; color: #ef4444;">AI Supply Chain Risk: Near Expiry Dashboard</h3>
+            <p style="font-size: 0.8rem; color: #94a3b8; margin-top:-10px;">Batches expiring within 90 days. Recommend discounting immediately.</p>
+            <table id="riskTable">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Branch</th>
+                        <th>Qty at Risk</th>
+                        <th>Expiring On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="4" style="text-align: center;">Loading AI Analysis...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+    const token = localStorage.getItem("access_token");
+
+    if (!token) window.location.href = "index.html";
+
+    async function loadDashboard() {
+        try {
+            const res = await fetch(`${API_URL}/reports/dashboard`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                renderKPIs(data.data);
+                renderChart(data.data.revenue_data);
+                renderTable(data.data.expiry_risk);
+            } else {
+                document.getElementById('errorBox').style.display = 'block';
+                document.getElementById('errorBox').innerText = data.detail || "Access Denied.";
+            }
+        } catch (e) {
+            document.getElementById('errorBox').style.display = 'block';
+        }
+    }
+
+    function renderKPIs(data) {
+        // Calculate total revenue
+        const totalRev = data.revenue_data.reduce((sum, item) => sum + item.total_revenue, 0);
+        document.getElementById('kpi-rev').innerText = "$" + totalRev.toLocaleString(undefined, {minimumFractionDigits: 2});
+        
+        // Count branches
+        document.getElementById('kpi-branches').innerText = data.revenue_data.length;
+        
+        // Count risk items
+        document.getElementById('kpi-risk').innerText = data.expiry_risk.length + " Batches";
+    }
+
+    function renderChart(revenueData) {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        const labels = revenueData.map(d => d.branch_code);
+        const values = revenueData.map(d => d.total_revenue);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Gross Revenue ($)',
+                    data: values,
+                    backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                    borderColor: 'rgba(139, 92, 246, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)'}, ticks: {color: '#94a3b8'} },
+                    x: { grid: { display: false }, ticks: {color: '#94a3b8'} }
+                },
+                plugins: {
+                    legend: { labels: { color: '#f8fafc' } }
+                }
+            }
+        });
+    }
+
+    function renderTable(riskData) {
+        const tbody = document.querySelector("#riskTable tbody");
+        if (riskData.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='4' style='text-align: center; color:#10b981;'>No immediate expiry risks detected!</td></tr>";
+            return;
+        }
+        
+        tbody.innerHTML = "";
+        riskData.forEach(item => {
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-weight:600">${item.product_name}</td>
+                    <td>${item.branch_code}</td>
+                    <td style="color:#ef4444; font-weight:700;">${item.quantity_at_risk} units</td>
+                    <td>${item.expiry_date}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // Initialize
+    loadDashboard();
+</script>
+</body>
+</html>

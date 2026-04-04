@@ -50,7 +50,6 @@ def process_pos_sale(pharmacist_id: str, sale_data: dict) -> dict:
         "customer_name": sale_data["customer_name"],
         "total_amount": total_amount,
         "payment_status": "paid",
-        "payment_method": sale_data["payment_method"],
         "items": items  # Array of dictionaries saved natively as JSONB
     }
     
