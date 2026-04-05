@@ -76,23 +76,6 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 6. TRANSFERS (Inventory Service)
--- Manages intra-branch stock movements directly.
--- ============================================
-CREATE TABLE IF NOT EXISTS transfers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    from_branch_code TEXT NOT NULL,
-    to_branch_code TEXT NOT NULL,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    items JSONB NOT NULL, -- e.g. [{"product_id": "...", "batch_number": "...", "qty": 10}]
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- 7. AI EVENTS (AI & Alerts Service)
--- Scalable unified sink for all background job flags.
--- ============================================
 CREATE TABLE IF NOT EXISTS ai_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_type TEXT NOT NULL CHECK (event_type IN ('forecast', 'anomaly', 'query', 'alert')),
@@ -103,9 +86,6 @@ CREATE TABLE IF NOT EXISTS ai_events (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- ROW LEVEL SECURITY (RLS) POLICIES
--- ============================================
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users read own profile" ON profiles FOR SELECT USING (auth.uid() = id);

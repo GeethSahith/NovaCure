@@ -79,11 +79,29 @@
             </table>
         </div>
     </div>
+
+    <!-- Generative AI Insights Section -->
+    <div class="card" style="margin-top: 2rem; border-color: #8b5cf6;">
+        <h3 style="margin-top:0; color:#8b5cf6; display:flex; align-items:center;">
+            <span>🤖 Llama-3 Strategic Advisor</span>
+            <span id="aiLoading" style="display:none; font-size: 0.8rem; color:#94a3b8; font-weight:normal; margin-left:1rem;">
+                (Scanning Live Supply Chain Database...)
+            </span>
+        </h3>
+        <div id="aiInsights" style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6;">
+            Click <strong>Generate Insights</strong> to have Llama 3.1 analyze the current state of the pharmacy network.
+        </div>
+        <button onclick="fetchAI()" id="aiBtn" style="margin-top:1rem; background:#8b5cf6; color:#fff; border:none; padding:0.5rem 1rem; border-radius:4px; font-weight:bold; cursor:pointer;">Generate Insights</button>
+    </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     const API_URL = "http://127.0.0.1:8000";
-    const token = localStorage.getItem("access_token");
+    
+    // Check both cookie (new method) and localStorage (old method) gracefully
+    const cookieToken = document.cookie.split('; ').find(row => row.startsWith('access_token='))?.split('=')[1];
+    const token = cookieToken || localStorage.getItem("access_token");
 
     if (!token) window.location.href = "index.html";
 
@@ -168,6 +186,35 @@
                 </tr>
             `;
         });
+    }
+
+    async function fetchAI() {
+        const btn = document.getElementById('aiBtn');
+        const loading = document.getElementById('aiLoading');
+        const content = document.getElementById('aiInsights');
+        
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        loading.style.display = 'inline';
+        content.innerHTML = '<span style="color:#94a3b8">Connecting to Bytez API...</span>';
+        
+        try {
+            const res = await fetch(`${API_URL}/ai/business-insights`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                // Parse markdown to HTML
+                content.innerHTML = marked.parse(data.data.insights);
+            } else {
+                content.innerHTML = `<span style="color:#ef4444">${data.detail}</span>`;
+            }
+        } catch(e) {
+            content.innerHTML = `<span style="color:#ef4444">JS Error: ${e.message}</span>`;
+            console.error(e);
+        } finally {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
     }
 
     // Initialize

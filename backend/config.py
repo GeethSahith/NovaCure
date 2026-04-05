@@ -6,7 +6,7 @@ Loads all settings from .env file.
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ── Supabase ──────────────────────────────────────────────
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")

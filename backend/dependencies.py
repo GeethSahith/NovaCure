@@ -39,19 +39,17 @@ def _decode_supabase_token(token: str) -> dict:
         )
 
 
-def _fetch_user_role(user_id: str) -> str | None:
-    """Look up the user's role from the profiles table (service-role, bypasses RLS)."""
+def _fetch_user_profile(user_id: str) -> dict | None:
+    """Look up the user's details from the profiles table (service-role, bypasses RLS)."""
     client = get_admin_client()
     res = (
         client.table("profiles")
-        .select("role")
+        .select("role, branch_code")
         .eq("id", user_id)
         .maybe_single()
         .execute()
     )
-    if res.data:
-        return res.data.get("role")
-    return None
+    return res.data
 
 
 # ── Main dependency: get_current_user ─────────────────────
@@ -79,9 +77,9 @@ async def get_current_user(
             detail="Token missing 'sub' claim",
         )
 
-    # Fetch role from profiles table
-    role = _fetch_user_role(user_id)
-    if role is None:
+    # Fetch role and branch from profiles table
+    profile = _fetch_user_profile(user_id)
+    if not profile or not profile.get("role"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User profile not found. Please complete registration.",
@@ -90,7 +88,8 @@ async def get_current_user(
     return {
         "user_id": user_id,
         "email": email or "",
-        "role": role,
+        "role": profile.get("role"),
+        "branch_code": profile.get("branch_code"),
         "token": token,
     }
 

@@ -35,3 +35,12 @@ async def review_insight(event_id: str, req: AiEventReview, current_user: dict =
         return GenericResponse(success=True, data=data)
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/business-insights", response_model=GenericResponse)
+async def generate_business_insights(current_user: dict = Depends(require_manager)):
+    """Regional Manager / Admin strictly: Use Bytez Llama-3.1 to analyze entire DB."""
+    try:
+        insights = logic.generate_strategic_insights()
+        return GenericResponse(success=True, data={"insights": insights})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
